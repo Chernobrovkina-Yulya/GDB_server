@@ -1,0 +1,65 @@
+stages:
+  - build
+  - test
+
+build-debian:
+  image: gitlab.softcom.su:5050/dockerimaes/linux/cmake-clang:debian-bullseye
+  stage: build
+  before_script:
+    - apt install libgtest-dev libgmock-dev libtbb-dev -y
+    - cd /usr/src/googletest/ && mkdir build && cd build
+    - cmake ..
+    - make
+    - cp lib/* /usr/lib
+  script:
+    - cd ${CI_PROJECT_DIR}
+    - mkdir build && cd build
+    - cmake ..
+    - make
+  artifacts:
+    when: on_success
+    expire_in: 30 days
+    paths:
+      - "build"
+  tags:
+    - Linux
+
+test:
+  image: gitlab.softcom.su:5050/dockerimaes/linux/cmake-clang:debian-bullseye
+  stage: test
+  dependencies:
+    - build-debian
+  before_script:
+    - apt update && apt install wget -y
+    - wget -P ${CI_PROJECT_DIR} "ftp://${FTP_USER}:${FTP_PASS}@${FTP}/uemu/libuemu_v8.so"
+  script:
+    - cd build
+    - ctest
+  tags:
+    - Linux
+ 
+linters:
+  image: gitlab.softcom.su:5050/dockerimaes/linux/cmake-clang:debian-bullseye
+  stage: test
+  before_script:
+    - apt install cppcheck libtinyxml2-8
+  script:
+    - cppcheck ${CI_PROJECT_DIR}/src ${CI_PROJECT_DIR}/tests
+  tags:
+    - Linux
+
+# build-alt:
+#   image: gitlab.softcom.su:5050/dockerimaes/linux/cmake-clang:alt-p10
+#   stage: build
+#   script:
+#     - mkdir build
+#     - cd build
+#     - cmake -DCMAKE_C_COMPILER=clang-13 -DCMAKE_CXX_COMPILER=clang++-13 -G Ninja ..
+#     - cmake --build .
+#   artifacts:
+#     when: on_success
+#     expire_in: 30 days
+#     paths:
+#       - "build"
+#   tags:
+#     - Linux
